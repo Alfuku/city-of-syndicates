@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>City of Syndicates</title>
+</head>
+<body>
+  <h1>City of Syndicates</h1>
+
+  <h2>Register</h2>
+  <input id="reg_user" placeholder="Username">
+  <input id="reg_pass" placeholder="Password" type="password">
+  <button onclick="register()">Register</button>
+
+  <h2>Login</h2>
+  <input id="log_user" placeholder="Username">
+  <input id="log_pass" placeholder="Password" type="password">
+  <button onclick="login()">Login</button>
+
+  <pre id="output"></pre>
+
+<script>
+const API = "https://city-of-syndicates.onrender.com";
+
+async function register() {
+  const res = await fetch(API + "/register", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      username: reg_user.value,
+      password: reg_pass.value
+    })
+  });
+  output.textContent = await res.text();
+}
+
+async function login() {
+  const res = await fetch(API + "/login", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      username: log_user.value,
+      password: log_pass.value
+    })
+  });
+  output.textContent = await res.text();
+}
+</script>
+
+</body>
+</html>
