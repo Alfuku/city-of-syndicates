@@ -1,13 +1,50 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+import os
 import random
+
+from fastapi import FastAPI, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.orm import sessionmaker, declarative_base, Session
+
+# ---------- DATABASE SETUP ----------
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(bind=engine)
+
+Base = declarative_base()
+
+
+class PlayerDB(Base):
+    __tablename__ = "players"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    password = Column(String)
+    money = Column(Integer, default=100)
+    energy = Column(Integer, default=100)
+    strength = Column(Integer, default=1)
+    agility = Column(Integer, default=1)
+    intelligence = Column(Integer, default=1)
+    wins = Column(Integer, default=0)
+
+
+Base.metadata.create_all(bind=engine)
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# ---------- FASTAPI ----------
 
 app = FastAPI(title="City of Syndicates API")
 
-players = {}
-
-
-# ---------- MODELS ----------
 
 class Player(BaseModel):
     username: str
@@ -18,47 +55,51 @@ class Action(BaseModel):
     username: str
 
 
-# ---------- BASIC ROUTES ----------
-
 @app.get("/")
 def root():
-    return {"message": "City of Syndicates backend is running"}
+    return {"message": "Persistent City of Syndicates backend is running"}
 
+
+# ---------- AUTH ----------
 
 @app.post("/register")
-def register(player: Player):
-    if player.username in players:
-        return {"error": "Username already exists"}
+def register(player: Player, db: Session = Depends(get_db)):
+    existing = db.query(PlayerDB).filter(PlayerDB.username == player.username).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Username already exists")
 
-    players[player.username] = {
-        "password": player.password,
-        "money": 100,
-        "energy": 100,
-        "strength": 1,
-        "agility": 1,
-        "intelligence": 1,
-        "wins": 0
-    }
+    new_player = PlayerDB(username=player.username, password=player.password)
+    db.add(new_player)
+    db.commit()
+    db.refresh(new_player)
 
-    return {"message": "Player registered successfully"}
+    return {"message": "Player registered permanently"}
 
 
 @app.post("/login")
-def login(player: Player):
-    if player.username not in players:
-        return {"error": "User not found"}
+def login(player: Player, db: Session = Depends(get_db)):
+    user = db.query(PlayerDB).filter(PlayerDB.username == player.username).first()
 
-    if players[player.username]["password"] != player.password:
-        return {"error": "Wrong password"}
+    if not user or user.password != player.password:
+        raise HTTPException(status_code=400, detail="Invalid credentials")
 
-    return {"message": "Login successful", "player": players[player.username]}
+    return {"message": "Login successful", "money": user.money, "energy": user.energy}
 
 
 @app.get("/stats/{username}")
-def stats(username: str):
-    if username not in players:
-        return {"error": "User not found"}
-    return players[username]
+def stats(username: str, db: Session = Depends(get_db)):
+    user = db.query(PlayerDB).filter(PlayerDB.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "money": user.money,
+        "energy": user.energy,
+        "wins": user.wins,
+        "strength": user.strength,
+        "agility": user.agility,
+        "intelligence": user.intelligence,
+    }
 
 
 # ---------- CRIME SYSTEM ----------
@@ -71,62 +112,51 @@ CRIMES = [
 
 
 @app.post("/crime")
-def commit_crime(action: Action):
-    if action.username not in players:
-        return {"error": "User not found"}
-
-    player = players[action.username]
+def commit_crime(action: Action, db: Session = Depends(get_db)):
+    user = db.query(PlayerDB).filter(PlayerDB.username == action.username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
     crime = random.choice(CRIMES)
 
-    if player["energy"] < crime["energy"]:
-        return {"error": "Not enough energy"}
+    if user.energy < crime["energy"]:
+        raise HTTPException(status_code=400, detail="Not enough energy")
 
-    player["energy"] -= crime["energy"]
+    user.energy -= crime["energy"]
 
     if random.random() <= crime["success"]:
         reward = random.randint(*crime["reward"])
-        player["money"] += reward
-        player["wins"] += 1
-        return {
-            "result": "success",
-            "crime": crime["name"],
-            "money_gained": reward,
-            "player": player,
-        }
+        user.money += reward
+        user.wins += 1
+        result = {"result": "success", "crime": crime["name"], "money_gained": reward}
     else:
-        return {
-            "result": "failed",
-            "crime": crime["name"],
-            "player": player,
-        }
+        result = {"result": "failed", "crime": crime["name"]}
+
+    db.commit()
+    return result
 
 
-# ---------- ENERGY REGEN (simple manual endpoint) ----------
+# ---------- REST ----------
 
 @app.post("/rest")
-def rest(action: Action):
-    if action.username not in players:
-        return {"error": "User not found"}
+def rest(action: Action, db: Session = Depends(get_db)):
+    user = db.query(PlayerDB).filter(PlayerDB.username == action.username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
-    players[action.username]["energy"] = min(
-        100, players[action.username]["energy"] + 20
-    )
+    user.energy = min(100, user.energy + 20)
+    db.commit()
 
-    return {"message": "Energy restored", "player": players[action.username]}
+    return {"message": "Energy restored", "energy": user.energy}
 
 
 # ---------- LEADERBOARD ----------
 
 @app.get("/leaderboard")
-def leaderboard():
-    sorted_players = sorted(
-        players.items(),
-        key=lambda x: x[1]["money"],
-        reverse=True
-    )
+def leaderboard(db: Session = Depends(get_db)):
+    users = db.query(PlayerDB).order_by(PlayerDB.money.desc()).limit(10).all()
 
     return [
-        {"username": username, "money": data["money"], "wins": data["wins"]}
-        for username, data in sorted_players[:10]
+        {"username": u.username, "money": u.money, "wins": u.wins}
+        for u in users
     ]
