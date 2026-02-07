@@ -155,8 +155,3 @@ def rest(action: Action, db: Session = Depends(get_db)):
 @app.get("/leaderboard")
 def leaderboard(db: Session = Depends(get_db)):
     users = db.query(PlayerDB).order_by(PlayerDB.money.desc()).limit(10).all()
-
-    return [
-        {"username": u.username, "money": u.money, "wins": u.wins}
-        for u in users
-    ]
