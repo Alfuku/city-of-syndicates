@@ -6,43 +6,74 @@
 <body>
   <h1>City of Syndicates</h1>
 
-  <h2>Register</h2>
-  <input id="reg_user" placeholder="Username">
-  <input id="reg_pass" placeholder="Password" type="password">
-  <button onclick="register()">Register</button>
+  <input id="user" placeholder="Username">
+  <input id="pass" placeholder="Password" type="password">
 
-  <h2>Login</h2>
-  <input id="log_user" placeholder="Username">
-  <input id="log_pass" placeholder="Password" type="password">
+  <br><br>
+
+  <button onclick="register()">Register</button>
   <button onclick="login()">Login</button>
+  <button onclick="getStats()">Stats</button>
+  <button onclick="crime()">Commit Crime</button>
+  <button onclick="rest()">Rest</button>
+  <button onclick="leaderboard()">Leaderboard</button>
 
   <pre id="output"></pre>
 
 <script>
 const API = "https://city-of-syndicates.onrender.com";
 
+function data() {
+  return {
+    username: user.value,
+    password: pass.value
+  };
+}
+
 async function register() {
-  const res = await fetch(API + "/register", {
+  const r = await fetch(API + "/register", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      username: reg_user.value,
-      password: reg_pass.value
-    })
+    body: JSON.stringify(data())
   });
-  output.textContent = await res.text();
+  output.textContent = await r.text();
 }
 
 async function login() {
-  const res = await fetch(API + "/login", {
+  const r = await fetch(API + "/login", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      username: log_user.value,
-      password: log_pass.value
-    })
+    body: JSON.stringify(data())
   });
-  output.textContent = await res.text();
+  output.textContent = await r.text();
+}
+
+async function getStats() {
+  const r = await fetch(API + "/stats/" + user.value);
+  output.textContent = await r.text();
+}
+
+async function crime() {
+  const r = await fetch(API + "/crime", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({username: user.value})
+  });
+  output.textContent = await r.text();
+}
+
+async function rest() {
+  const r = await fetch(API + "/rest", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({username: user.value})
+  });
+  output.textContent = await r.text();
+}
+
+async function leaderboard() {
+  const r = await fetch(API + "/leaderboard");
+  output.textContent = await r.text();
 }
 </script>
 
