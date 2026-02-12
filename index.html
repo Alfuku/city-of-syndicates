@@ -78,8 +78,9 @@
 </div>
 
 <script>
+// ✅ LIVE backend URL
 const API = "https://city-of-syndicates-1.onrender.com";
-  
+
 let currentUser = null;
 
 function show(data) {
@@ -102,10 +103,12 @@ async function post(path, body) {
 }
 
 async function register() {
-  show(await post("/register", {
+  const res = await post("/register", {
     username: user.value,
     password: pass.value
-  }));
+  });
+  if (!res.error && res.username) currentUser = res.username;
+  show(res);
 }
 
 async function login() {
@@ -113,7 +116,7 @@ async function login() {
     username: user.value,
     password: pass.value
   });
-  if (!res.error) currentUser = res.username;
+  if (!res.error && res.username) currentUser = res.username;
   show(res);
 }
 
@@ -139,4 +142,3 @@ async function buy() {
 
 </body>
 </html>
-
