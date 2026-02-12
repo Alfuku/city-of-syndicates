@@ -9,29 +9,34 @@
       background: #111;
       color: #0f0;
       padding: 12px;
+      margin: 0;
     }
 
     h1 {
       text-align: center;
       color: #f00;
+      font-size: 20px;
+      margin-bottom: 10px;
     }
 
     .box {
       background: #1b1b1b;
       border: 1px solid #333;
-      padding: 10px;
-      margin: 10px 0;
+      padding: 12px;
+      margin: 8px 0;
       border-radius: 6px;
     }
 
-    input, button, select {
+    input, select, button {
       width: 100%;
       margin: 6px 0;
-      padding: 10px;
-      font-size: 14px;
+      padding: 12px;
+      font-size: 16px;
       background: #000;
       color: #0f0;
       border: 1px solid #333;
+      border-radius: 4px;
+      box-sizing: border-box;
     }
 
     button {
@@ -39,12 +44,19 @@
       color: #fff;
     }
 
+    button:active {
+      background: #444;
+    }
+
     #log {
       background: #000;
       border: 1px solid #333;
-      min-height: 120px;
+      min-height: 150px;
+      max-height: 300px;
       padding: 10px;
+      overflow-y: auto;
       white-space: pre-wrap;
+      font-size: 14px;
     }
   </style>
 </head>
@@ -65,7 +77,7 @@
 </div>
 
 <div class="box">
-  <input id="itemId" placeholder="Item ID (pistol)">
+  <input id="itemId" placeholder="Item ID (e.g., pistol)">
   <select id="itemType">
     <option value="weapon">Weapon</option>
     <option value="armor">Armor</option>
@@ -74,69 +86,84 @@
 </div>
 
 <div class="box">
-  <pre id="log">Welcome to the city…</pre>
+  <button onclick="leaderboard()">View Leaderboard</button>
+</div>
+
+<div class="box">
+  <pre id="log">Welcome to City of Syndicates!</pre>
 </div>
 
 <script>
-// ✅ LIVE backend URL
-const API = "https://city-of-syndicates-1.onrender.com";
+// 🔥 Cross-platform ready backend URL
+const BASE_URL = "https://city-of-syndicates-1.onrender.com";
 
 let currentUser = null;
 
+// Display JSON nicely
 function show(data) {
   const log = document.getElementById("log");
   log.textContent = JSON.stringify(data, null, 2);
   log.scrollTop = log.scrollHeight;
 }
 
+// POST request helper
 async function post(path, body) {
   try {
-    const r = await fetch(API + path, {
+    const r = await fetch(BASE_URL + path, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify(body)
     });
     return await r.json();
   } catch {
-    return {error: "Server unreachable"};
+    return {error: "Server unreachable. Make sure backend is awake."};
   }
 }
 
+// GET request helper
+async function get(path) {
+  try {
+    const r = await fetch(BASE_URL + path);
+    return await r.json();
+  } catch {
+    return {error: "Server unreachable. Make sure backend is awake."};
+  }
+}
+
+// User actions
 async function register() {
-  const res = await post("/register", {
-    username: user.value,
-    password: pass.value
-  });
+  const res = await post("/register", {username:user.value, password:pass.value});
   if (!res.error && res.username) currentUser = res.username;
   show(res);
 }
 
 async function login() {
-  const res = await post("/login", {
-    username: user.value,
-    password: pass.value
-  });
+  const res = await post("/login", {username:user.value, password:pass.value});
   if (!res.error && res.username) currentUser = res.username;
   show(res);
 }
 
 async function crime() {
-  if (!currentUser) return show({error: "Login first"});
-  show(await post("/crime", {username: currentUser}));
+  if (!currentUser) return show({error:"Please login first"});
+  show(await post("/crime", {username:currentUser}));
 }
 
 async function rest() {
-  if (!currentUser) return show({error: "Login first"});
-  show(await post("/rest", {username: currentUser}));
+  if (!currentUser) return show({error:"Please login first"});
+  show(await post("/rest", {username:currentUser}));
 }
 
 async function buy() {
-  if (!currentUser) return show({error: "Login first"});
+  if (!currentUser) return show({error:"Please login first"});
   show(await post("/armory/buy", {
     username: currentUser,
-    item_id: itemId.value,
-    item_type: itemType.value
+    item_id: document.getElementById("itemId").value,
+    item_type: document.getElementById("itemType").value
   }));
+}
+
+async function leaderboard() {
+  show(await get("/leaderboard"));
 }
 </script>
 
