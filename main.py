@@ -76,7 +76,10 @@ Base.metadata.create_all(bind=engine)
 
 # ---------- FASTAPI ----------
 app = FastAPI(title="City of Syndicates")
-
+@app.on_event("startup")
+def startup():
+    Base.metadata.create_all(bind=engine)
+    
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -223,4 +226,5 @@ def buy_item(data: BuyItem, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": f"Bought {item['name']}"}
+
 
